@@ -1,0 +1,479 @@
+\documentclass[11pt]{paper}
+
+\usepackage{times}
+\usepackage[english]{babel}
+\usepackage[a4paper,bindingoffset=0.2in,left=0.8in,right=0.8in,top=1in,bottom=1in,footskip=.25in]{geometry}
+\usepackage[utf8x]{inputenc}
+\usepackage{hyperref}
+\usepackage{minted}
+
+\usepackage{amsmath,amssymb}
+\usepackage{amsthm}
+\usepackage{amsfonts}
+\newtheorem{theorem}{Theorem}[section]
+\usepackage{listings}
+\usepackage[pdftex]{color, graphicx}
+\usepackage[colorinlistoftodos]{todonotes}
+
+\usepackage{makeidx}
+
+\usepackage{setspace}
+\onehalfspacing
+
+\usepackage{booktabs}
+
+\usepackage{caption}
+\usepackage{subfig}
+\usepackage[affil-it]{authblk}
+
+\title{CNV detection from genotyping arrays}
+\subtitle{\Large Pipeline}
+\author{\small Lucia Trastulla, PhD student\\
+Laura Jim\'enez Barr\'on, PhD student }
+\affil{\small Max Planck Institute for Psychiatry, \\Ziller lab}
+
+\begin{document}
+\maketitle
+\textbf{\large Input}
+\begin{itemize}
+\item Genotyping intensities (.idata files) 
+\item Manifest file provided by Illumina (.bpm or.csv file) depending on the chip
+\item Cluster file provided by Illumina (.egt file) depending on the chip
+\item Sample sheet file (Project name and manifest info, sample ID, Sample Plate, Sample Well SentrixBarcode\_A, SentrixPosition\_A, additional info)
+\end{itemize}
+
+\textbf{\large Required program}
+\begin{itemize}
+\item \href{https://support.illumina.com/array/array_software/genomestudio/downloads.html}{GenomeStudio} for Genotyping with PLINK Input Report Plug-in v2.1.4 
+\item \href{https://www.r-project.org/}{R} with the following packages installed: argparse, doParallel, ggplot2, RColorBrewer, ggrepel, ComplexHeatmap, circlize, grid, gridExtra
+\item \href{https://www.cog-genomics.org/plink2}{Plink2}
+\item \href{https://samtools.github.io/bcftools/howtos/index.html}{BCFtools}
+\item \href{http://bedtools.readthedocs.io/en/latest/}{bedtools}
+\item \href{https://vcftools.github.io/downloads.html}{VCFtools}
+\end{itemize}
+
+\section{Genome Studio (GS) module}
+\begin{enumerate}
+\item Load the samples from the intensities file and the provided Illumina clustering file (.egt), SNPs are automatically clustered so there is no need to use the command "Cluster all SNPs" in "Analysis".
+\item In the "Full Data Table" window, insert the subcolumns B Allele Frequencies (BAF) and Log R Ratio (LRR) (automatically loaded for each sample) and export the table.
+\item In the "Samples Table" window, compute the Call Rate for all samples and export the table.
+\item Use PLINK from the GS plug-in and save the report.
+\item In the "Samples Table" window, if samples with Call Rate $<0.98$ are present, exclude them and update SNPs statistic.
+\item Export "SNP Table".
+\end{enumerate}
+\textbf{Computational time:} around $1$ hour for 96 samples \\ 
+\textbf{Output:} 
+\begin{itemize}
+{\small
+\item Full\_Data\_Table.txt
+\item Samples\_Table.txt
+\item SNP\_Table.txt (computed only from samples with acceptable quality)
+\item genomestudio\_ouptut.map and  genomestudio\_output.ped (from PLINK)}
+\end{itemize}
+
+
+
+\section{SNPs and Samples Quality control}
+\textbf{Script:} QualityControl\_GT.sh
+\begin{minted}{bash}
+bash QualityControl_GT.sh <folder with R scripts> <manifest file> 
+<file with PAR> <output/input folder> <n. cores parallelization>
+\end{minted}
+\textbf{Main steps:}
+\begin{enumerate}
+\item Identify SNPs in Pseudoautosomal Regions (PARs). 
+\item Run the quality control script, exclude SNPs that do not satisfy the criteria, export LRR and BAF and Genotype (GT) from GenomeStudio output.
+\item Plot samples call rate before and after quality control (sex inferred from the data). 
+\end{enumerate}
+\textbf{Note:}
+\begin{itemize}
+\item Detailed explanation of the quality control protocol in "Genotyping\_Data\_QC.pdf"
+\item PAR\_Coord\_GRCh37.txt obtained from \href{https://www.ncbi.nlm.nih.gov/assembly/GCF_000001405.13/}{here} and has the following format (tab separated)
+\begin{table}[!h]
+\centering
+\begin{tabular}{|c|c|c|c|}
+\hline
+\multicolumn{4}{|c|}{Region    GRCh37 Coordinates} \\ \hline
+Chr    & PAR\_type    & Start        & End         \\ \hline
+X      & PAR1         & 60001        & 2699520     \\ \hline
+X      & PAR2         & 154931044    & 155260560   \\ \hline
+Y      & PAR1         & 10001        & 2649520     \\ \hline
+Y      & PAR2         & 59034050     & 59363566    \\ \hline
+\end{tabular}
+\end{table}
+\end{itemize}
+
+
+\noindent\textbf{Output:} 
+\begin{itemize}
+\item PAR\_SNPs.txt (indicates whether a SNP is located in a PAR or not)
+\item info\_QC.txt (info on the SNPs filtered)
+\item Full\_Data\_Table\_filt.txt
+\item SNP\_Table\_filt.txt
+\item Samples\_Table\_filt.txt
+\item GT\_table.txt (genotype for each sample)
+\item GT\_match.txt (n.samples $\times$ n.samples, percentage of matched genotype between samples)
+\item LRR\_table.txt (LRR for each sample)
+\item BAF\_table.txt (BAF for each sample)
+\item plot\_CR\_samples.pdf/.png (call rate plots before and after QC)
+\end{itemize}
+
+\noindent\textbf{Computational time:} around $1.5$ hours for 96 samples\\
+
+
+\section{Samples Mismatch Control}
+Write an annotation file for the samples in the following format (save as $<$project-name$>$\_annotation\_file.csv)
+\begin{table}[!h]
+\centering
+\begin{tabular}{|l|l|l|l|l|l|}
+\hline
+ID          & Type & Sample\_name & SentrixBarcode\_A & SentrixPosition\_A & Note \\ \hline
+SCZ5\_fibro & PRE  & SCZ5         & 201715380135      & R08C01             &      \\ \hline
+SCZ5\_cl1+  & POST & SCZ5         & 201715380135      & R12C01             &      \\ \hline
+\end{tabular}
+\end{table}
+\begin{itemize}
+\item \textbf{ID}: SampleID in the original Sample sheet file
+\item \textbf{Type}: PRE (for original material) or POST (for reprogrammed)
+\item \textbf{Sample\_name}: identifier for material that comes from the same sample
+\item \textbf{SentrixBarcode\_A} and \textbf{SentrixPosition\_A} from the original Sample sheet
+\item \textbf{Note}: additional info, explained later
+\end{itemize}
+Then run the following bash script\\
+\textbf{Script:} GT\_match.sh
+\begin{minted}{bash}
+bash GT_match.sh <folder with R scripts> <output/input folder> 
+<project name (e.g. M00940)> <annotation file manually created> 
+\end{minted}
+\textbf{Main steps:}
+\begin{enumerate}
+\item Compute the percentage of genotype match for each pair of cell lines and plot a heatmap showing the pairing between corresponding cell lines as indicated in the provided annotation file.
+\item If the labelling of the lines is not concordant with the GT match, then sample names are changed to "mismatch" and the heatmap is plotted again with the correct labelling.
+\end{enumerate}
+\textbf{Note:}
+\begin{itemize}
+\item 96\% of matching genoptypes is required to classify cell lines as coming from the same sample.
+\item In order to exclude certain cell lines from the analysis, simply do not include them in the annotation file.
+\item The final annotation file can be manually edited in the column "Sample\_name\_new" if the correct sample labelling is known, otherwise the mislabelled samples will be identified as "MISMATCHED\_SAMPLE".
+\item A column indicating the Gender is added in the new annotation file.
+\end{itemize}
+\textbf{Output:}
+\begin{itemize}
+\item $<$project name$>$\_hm\_GT.pdf/.png (heatmap with original labelling).
+\item $<$project-name$>$\_hm\_GT\_correct.pdf/.png (heatmap with correct labelling).
+\item $<$project-name$>$\_annotation\_file\_GTmatch.csv (updated annotation file with the correct labelling).
+\end{itemize}
+
+
+\section{Prepare sample files}
+Manually create a .txt file that contains the samples of interest (one sample name in each row). Then run the following bash script:\\
+\textbf{Script:} Create\_SampleID.sh
+\begin{minted}{bash}
+bash Create_SampleID.sh <folder with R scripts> <output/input folder> 
+<updated annotation file> <samples names manually created>
+\end{minted}
+\textbf{Main steps:}\\
+For each sample name (e.g. SCZ5) in the samples names file, create a .txt file that contains in the first row the gender of the sample, second row the SentrixBarcode\_SentrixPosition id for the PRE reprogramming lines, from the third to the last row the SentrixBarcode\_SentrixPosition id for the POST (reprogramming) lines.\\
+\textbf{Note:}
+\begin{itemize}
+\item The script uses updated Sample Name in "Sample\_name\_new" column of the new annotation file.
+\item If the aim is to compare two lines from the same donor both PRE or POST reprogramming, the "Type" entry can be changed and the info is reported in "Note", as in the following example.
+\begin{table}[!h]
+\scalebox{0.87}{\begin{tabular}{|l|l|l|l|l|l|l|}
+\hline
+ID         & Type & Sample\_name & SentrixBarcode\_A & SentrixPosition\_A & Note                    & Sample\_name\_new \\ \hline
+Ul1\_pool1 & PRE  & UL1          & 201694380133      & R01C01             & POST ann as PRE &  UL1               \\ \hline
+\end{tabular}}
+\end{table}
+\item If there are more than one PRE line for the same donor, more than one .txt file will be generated, one for each PRE line. In this way, the comparison of the POST lines with all the PRE lines present is performed. 
+\item If only a line for a sample is present, the single CNV analysis will be performed afterwards (see  "Single analysis" section). If this line is not annotated as "PRE" in "Type", then change to "PRE".
+\end{itemize}
+
+\noindent \textbf{Output:}{\small\\
+ID\_$<$sample\_name$>$\_$<$n.PRE$>$.txt where the "n.PRE" refers to the number of PRE reprogramming lines considered (e.g ID\_SCZ5\_1.txt if only one "PRE" is present in the annotation file for the sample SCZ5).}
+
+\section{Prepare VCF file}
+\subsection{Obtain REF/ALT annotation}
+\textbf{Script:} GetRefAlt.sh
+\begin{minted}{bash}
+bash GetRefAlt.sh <manifest file .csv> <fasta file> 
+<number of header lines in the manifest> <number of tail lines in the manifest>
+\end{minted}
+\textbf{Main steps:}\\
+Prepare the manifest file and extract the reference allele from the reference genome fasta file.\\
+\noindent\textbf{Note:}\\
+\vspace{-0.5cm}
+\begin{itemize}
+\item Fasta file can be downloaded from \href{https://software.broadinstitute.org/gatk/download/bundle}{here} (version hg19).
+\item Header and tail lines in the manifest file are the lines at the beginning and end that do not have a SNP record but other info.
+\item $<$number of header lines$>$ comprehends both not relevant lines and the header itself 
+\end{itemize}
+\noindent\textbf{Output:}\\
+$<$manifest file$>$\_reference\_alleles file: chromosome $|$ position $|$ reference allele.
+
+\subsection{Create VCF file}
+\textbf{Script:} CreateVcf.sh
+\begin{minted}{bash}
+bash CreateVcf.sh <otuput folder> <path location plink> 
+<path and common name GenomeStudio ouput .map .ped files> 
+\end{minted}
+\textbf{Main steps:}\\
+Create the vcf file from the .map and .ped files output of the PLINK plug-in in GenomeStudio.\\
+\noindent\textbf{Output:}\\
+\vspace{-0.5 cm}
+\begin{itemize}
+\item plink.vcf
+\item plink.log 
+\item plink.nosex
+\end{itemize}
+
+\subsection{Correct REF/ALT}
+\textbf{Script:} CorrectAltRefVCF.sh
+\begin{minted}{bash}
+bash CorrectAltRefVCF.sh <vcf file> <reference alleles file> 
+\end{minted}
+\textbf{Main steps:}\\
+\vspace{-0.5cm}
+\begin{itemize}
+\item Correct REF/ALT in the .vcf file based on the $<$manifest file$>$\_reference\_alleles file.
+\item Exclude the mitochondrial (MT) and XY SNPs in the .vcf file.
+\end{itemize}
+\noindent\textbf{Output:}\\
+plink.vcf\_RefAltCorrected.vcf (updated vcf file)
+
+\subsection{Annotate VCF file}
+\textbf{Script:} Preproc\_cnv.sh
+\begin{minted}{bash}
+bash Preproc_cnv.sh <output/input folder>  
+\end{minted}
+\textbf{Main steps:}\\
+\vspace{-0.5cm}
+\begin{itemize}
+\item Filter updated .vcf file to consider only SNPs that passed the quality control.
+\item Annotate .vcf file with the BAF and the LRR previously extracted.   
+\end{itemize}
+\textbf{Computational time:} for 96 samples $10$ min circa\\ 
+\textbf{Output:}
+\begin{itemize}
+\item data\_BAF\_LRR.vcf file with LRR and BAF in "FORMAT" and correct REF/ALT annotation for the quality control SNPs.
+\item SNPs\_QC.txt file containing SNPs names that pass the quality control. 
+\end{itemize}
+
+
+\section{CNV detection: Pairwise comparison}
+\subsection{Estimates CNVs}
+\textbf{Script:} Cnv\_Analysis.sh
+\begin{minted}{bash}
+bash Cnv_Analysis.sh <input folder> <SampleID file>  <Sample name> 
+\end{minted}
+\textbf{Main steps:}\\
+Pairwise cnv prediction via bcftools for the specified sample name. Compare the PRE line with each of the POST lines in the SampleID file (e.g ID\_SCZ5\_1.txt).\\
+\textbf{Note:}
+\vspace{-0.2cm}
+\begin{itemize}
+\item The analysis is only for the sample specified.
+\item The input folder is the one containing data\_BAF\_LRR.vcf file.
+\item SampleID file is one of the output for the script Create\_SampleID.sh
+\end{itemize}
+\textbf{Output:}
+For each of the POST lines the following folder is generated:\\
+outdir\_$<$sample name$>$\_$<$id\_pre$>$/output\_$<$id\_post$>$ which contains
+\begin{itemize}
+\item dat.$<$id\_pre$>$.tab and dat.$<$id\_post$>$.tab input LRR and BAF
+\item cn.$<$id\_pre$>$.tab and cn.$<$id\_post$>$.tab probability for each copy number state
+\item summary.$<$id\_pre$>$.tab and summary.$<$id\_post$>$.tab summary of copy number state with quality of prediction, n. of markers and n. of heterozygous sites
+\item summary.tab combination of single summary files 
+\end{itemize}
+
+
+\subsection{Quality control CN and plot different CN detected}
+\textbf{Script:} Cnv\_Diff.sh
+\begin{minted}{bash}
+bash Cnv_Diff.sh  <folder with R scripts> <input/output folder> 
+<SampleID file> <Sample Name> <annotation file>  
+\end{minted}
+\textbf{Main steps:}
+\begin{itemize}
+\item Filter out detected CN of poor quality. The criteria are based on \href{https://www.nature.com/articles/nature22403}{Kilpinen et al.}:
+\begin{enumerate}
+\item quality score lower than 2,
+\item CN length lower than 200kb,
+\item number of sites lower than 10 for a deletion,
+\item number of heterozygous sites lower than 10 for a duplication.  
+\end{enumerate}
+To change these quality control parameters, modify input in summary\_diffCN\_run.R 
+\item Plot number of different CNV prediction in each chromosome for each comparison (PRE vs POST lines for the sample considered).
+\end{itemize}  
+\noindent \textbf{Output:}
+\begin{itemize}
+\item summary\_pair\_$<$sample name$>$\_$<$n.PRE$>$\_$<$id\_post$>$.tab summary info combined for the comparison, last column indicates whether the region must be filtered or not.
+\item $<$sample name$>$\_CNV\_diff.txt for each comparison and chromosome, gives the number of different CN detected between the PRE and the POST reprogramming lines.
+\item $<$sample name$>$\_CNV\_diff.pdf/.png plot of the previous table
+\item  summary\_QC.$<$id\_pre$>$.tab and summary\_QC.$<$id\_post$>$.tab summary of copy number state with filter of specific region due to quality control procedure.
+\end{itemize}
+
+\subsection{Plot detected CN on the entire genome}
+\textbf{Script:} Cnv\_Plot.sh
+\begin{minted}{bash}
+bash Cnv_Plot.sh  <folder with R scripts> <input/output folder> 
+<SampleID file> <Sample Name>  
+\end{minted}
+\textbf{Main steps:}\\
+For a sample, plot the CNVs detected in each line for all the chromosomes.\\
+\noindent \textbf{Note:}
+\begin{itemize}
+\item Only the CN different from 2 that pass the quality control are plotted, centromeres are excluded from the analysis.
+\item The CN plotted are the one detected in each pairwise comparison, for the PRE line the union of the detected CN in each comparison is plotted.
+\end{itemize}
+\noindent \textbf{Output:}
+\begin{itemize}
+\item cnv\_$<$sample name$>$\_$<$n.PRE$>$\_QC\_summary.txt for a sample and a PRE line associated to it, contains the prediction of the CN status in each of the comparison PRE-POST.
+\item cnv\_$<$sample name$>$\_$<$n.PRE$>$\_QC.pdf/png plot of the CN status predicted in each comparison. The first line indicates whether a difference in the CN prediction is detected.
+\end{itemize}
+
+\subsection{Plot LRR and BAF}
+\textbf{Script:} Cnv\_Plot\_LRR-BAF.sh
+\begin{minted}{bash}
+bash Cnv_Plot_LRR-BAF.sh  <folder with R scripts> <input/output folder> 
+<SampleID file> <Sample Name> <annotation file> 
+<chromosome to be plotted (optional)>  
+\end{minted}
+\textbf{Main steps:}\\
+For a sample and for each comparison PRE-POST, plot LRR BAF and detected CN for a specific chromosome.\\
+\noindent \textbf{Note:}
+\begin{itemize}
+\item All the CN are plotted, even the one that do not pass the quality control.
+\item The chromosome to be investigated can be specified, otherwise 24 plots are generated, one for each chromosome.
+\end{itemize}
+\noindent \textbf{Output:}\\
+plot\_$<$id\_pre$>$\_vs\_$<$id\_post$>$\_chr$<$n.chr$>$.png
+
+\section{CNV detection: Single analysis}
+\subsection{Estimates CNVs}
+\textbf{Script:} Cnv\_Analysis\_Single.sh
+\begin{minted}{bash}
+bash Cnv_Analysis_Single.sh <input folder> <SampleID file>  <Sample name> 
+\end{minted}
+\textbf{Main steps:}\\
+Single CNV prediction via bcftools for the specified sample name. Detect CNV for the single line present in the SampleID file.\\
+\textbf{Note:}
+\vspace{-0.2cm}
+\begin{itemize}
+\item The analysis is only for the sample specified.
+\item The input folder is the one containing data\_BAF\_LRR.vcf file.
+\item SampleID file is one of the output for the script Create\_SampleID.sh
+\end{itemize}
+\textbf{Output:}
+The following folder is generated:\\
+outdir\_$<$sample name$>$\_$<$id\_line$>$/ which contains
+\begin{itemize}
+\item dat.$<$id\_line$>$.tab input LRR and BAF
+\item cn.$<$id\_line$>$.tab probability for each copy number state
+\item summary.$<$id\_line$>$.tab summary of copy number state with quality of prediction, n. of markers and n. of heterozygous sites 
+\end{itemize}
+
+\subsection{Quality control CN and plot number CN detected}
+\textbf{Script:} Cnv\_Det\_Single.sh
+\begin{minted}{bash}
+bash Cnv_Det_Single.sh  <folder with R scripts> <input/output folder> 
+<SampleID file> <Sample Name>  
+\end{minted}
+\textbf{Main steps:}
+\begin{itemize}
+\item Filter out detected CN of poor quality. The criteria are based on \href{https://www.nature.com/articles/nature22403}{Kilpinen et al.} (see 6.2). To change quality control parameters, modify input in summary\_CNSingleAnalysis\_run.R
+\item Plot number of deletion and duplication detected for the considered line.
+\end{itemize}  
+\noindent \textbf{Output:}
+\begin{itemize}
+\item CNV\_detection\_$<$sample name$>$\_$<$id\_line$>$.txt for each chromosome, gives the number of duplication a deletion detected.
+\item CNV\_detection\_$<$sample name$>$\_$<$id\_line$>$.pdf/.png plot of the previous table.
+\item  summary\_QC.$<$id\_line$>$.tab summary of copy number state with filter of specific region due to quality control procedure.
+\end{itemize}
+
+\subsection{Plot detected CN on the entire genome}
+\textbf{Script:} Cnv\_Plot\_Single.sh
+\begin{minted}{bash}
+bash Cnv_Plot_Single.sh  <folder with R scripts> <input/output folder> 
+<SampleID file> <Sample Name>  
+\end{minted}
+\textbf{Main steps:}\\
+For a sample, plot the CNVs detected in the line for all the chromosomes.\\
+\noindent \textbf{Note:}\\
+Only the CN different from 2 that pass the quality control are plotted, centromeres are excluded from the analysis.\\
+\noindent \textbf{Output:}\\
+cnv\_$<$sample name$>$.pdf
+
+\subsection{Plot LRR and BAF}
+\textbf{Script:} Cnv\_Plot\_LRR-BAF\_Single.sh
+\begin{minted}{bash}
+bash Cnv_Plot_LRR-BAF_Single.sh  <folder with R scripts> <input/output folder> 
+<SampleID file> <Sample Name> <annotation file> 
+<chromosome to be plotted (optional)>  
+\end{minted}
+\textbf{Main steps:}\\
+For a sample, plot LRR, BAF and detected CN for a specific chromosome.\\
+\noindent \textbf{Note:}
+\begin{itemize}
+\item All the CN are plotted, even the one that do not pass the quality control.
+\item The chromosome to be investigated can be specified, otherwise 24 plots are generated, one for each chromosome.
+\end{itemize}
+\noindent \textbf{Output:}\\
+plot\_$<$id\_line$>$\_chr$<$n.chr$>$.png
+
+\section{Merge two projects}
+The aim is to merge two complete vcf files (with LRR and BAF annotation) in order to compare lines from the same sample that are present in two different projects.
+\begin{enumerate}
+\item \textbf{Script:} Merge\_vcf.sh
+\begin{minted}{bash}
+bash Merge_vcf.sh  <output folder> <folder project 1> <folder project 2>  
+\end{minted}
+\textbf{Main steps:}
+\begin{itemize}
+\item Find common set of SNPs between the two projects after the quality control procedure.
+\item Filter each .vcf file considering only the common set of SNPs.
+\item Merge the two filtered .vcf files.
+\end{itemize}
+\textbf{Note:}\\
+This step can be performed only if steps 1,2 and 5 have been executed for both projects.\\
+\textbf{Output:}
+\begin{itemize}
+\item comm\_SNPs.txt set of common SNPs.
+\item data\_BAF\_LRR.vcf merged .vcf file.
+\end{itemize}
+\textbf{Computational Time:} For 2 projects of 96 samples each, 10 min circa 
+\item Manually create a .txt file that contains the names of the samples of interest (one in each row). Then run the following bash script:\\
+\textbf{Script:} GT\_match\_merge.sh
+\begin{minted}{bash}
+bash GT_match_merge.sh  <folder with R scripts> <output folder> 
+<folder project 1> <folder project 2> <annotation file project 1> 
+<annotation file project 2> <samples names manually created> <n.of cores>
+\end{minted}
+\textbf{Main steps:}
+\begin{itemize}
+\item Compute GT match for the samples of interest using the GT tables from the two projects.
+\item Plot heatmap based on the match.
+\item Create an annotation file containing the info for the sample considered and correct the name if there is any mismatch.
+\end{itemize}
+\textbf{Note:}\\
+The sample name column in the annotation files used as input is the original one and not the updated.\\
+\textbf{Output:}
+\begin{itemize}
+\item GT\_comp.txt
+\item Merged\_hm\_GT.pdf/.png (heatmap with original labelling)
+\item Merged\_hm\_GT\_samplename.pdf/.png (heatmap with original labelling, labels are ID names)
+\item Merged\_annotation\_file\_GTmatch.csv (updated annotation file with correct labelling, another column is added to indicate different projects)
+\end{itemize}
+\item Steps 4, 6 and 7 can be now performed using merged annotation file and merged vcf file.
+\end{enumerate}
+
+\section{Example Complete pipeline}
+To see an example of the complete pipeline, check example\_pipeline\_June2018.txt and\\ 
+example\_pipeline\_Nov17\_June18.txt (merged projects).
+
+
+\end{document}
+
+
+
+
+
