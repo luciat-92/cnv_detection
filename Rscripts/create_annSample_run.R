@@ -39,7 +39,7 @@ list.flatten <- function (x, use.names = TRUE, classes = "ANY")
 # NOTE: if ann_file more than one file, the first is the new the second is the old
 
 # load the annotation file
-ann_table <- read.csv(file = ann_file, header = TRUE, stringsAsFactors = FALSE)
+ann_table <- read.csv(file = ann_file, header = TRUE, stringsAsFactors = FALSE, colClasses=c("Gender"="character"))
 
 ann_table$SentrixBarcode_A <- as.character(ann_table$SentrixBarcode_A)
 ann_table[,2] <- ann_table$Type
@@ -133,7 +133,7 @@ new_file <- list.flatten(new_file)
 for(i in 1:length(id_pre)){
   
   df <- data.frame(new_file[[i]], stringsAsFactors = F)
-  df <- rbind(ann_table_sample_pre[[i]]$Gende[which(ann_table_sample_pre[[i]]$Type == 'PRE')], df)
+  df <- rbind(ann_table_sample_pre[[i]]$Gender[which(ann_table_sample_pre[[i]]$Type == 'PRE')], df)
   
   write.table(x = df, file = paste(outFile, sample_name, sprintf('_%i.txt', i), sep = ""), col.names = FALSE,  quote = FALSE, row.names = FALSE)
   
