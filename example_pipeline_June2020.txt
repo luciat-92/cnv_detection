@@ -1,0 +1,84 @@
+script_fold=/mnt/Genotyping/cnv_detection/scripts/
+work_fold=/mnt/Genotyping/genotyping_June2020/
+
+########################################
+### Quality control and sample match ###
+######################################## 
+
+bash ${script_fold}QualityControl_GT.sh /mnt/Genotyping/cnv_detection/Rscripts/ /mnt/Genotyping/cnv_detection/Manifest_csv/GSA-24v3-0_A1.csv /mnt/Genotyping/cnv_detection/PAR_Coord_GRCh37.txt ${work_fold} 10 &
+
+# M01020_01_annotation_file.csv manually created and modified (pre and post)
+bash ${script_fold}GT_match.sh /mnt/Genotyping/cnv_detection/Rscripts/ ${work_fold} M01020_01 ${work_fold}M01020_01_annotation_file.csv 
+# M01020_01_annotation_file_GTmatch modified manually 
+
+# manually create a .txt file that contains the samples of interest
+bash ${script_fold}Create_SampleID.sh /mnt/Genotyping/cnv_detection/Rscripts/ ${work_fold} ${work_fold}/M01020_01_annotation_file_GTmatch_mod.csv  ${work_fold}Samples_name.txt
+
+#######################################
+
+#######################
+### obtain vcf file ###
+####################### 
+
+bash ${script_fold}GetRefAlt.sh /mnt/Genotyping/cnv_detection/Manifest_csv/GSA-24v3-0_A1.csv /mnt/refData/hg19.fa 8 24 
+
+bash ${script_fold}CreateVcf.sh ${work_fold} /mnt/Software/PLINK1.9/ genomestudio_output 
+
+bash ${script_fold}CorrectAltRefVCF.sh ${work_fold}plink.vcf /mnt/Genotyping/cnv_detection/Manifest_csv/GSA-24v3-0_A1.csv_reference_alleles 
+
+bash ${script_fold}Preproc_cnv.sh ${work_fold} /mnt/Software/PLINK1.9/
+
+mkdir -p ${work_fold}summary_res/
+
+#########################
+### pairwise analysis ###
+#########################
+
+sample_name_pair=(MISMATCHED_SAMPLE_1)
+  
+for id in ${sample_name_pair[@]}
+do
+	echo ${id}
+
+	bash ${script_fold}Cnv_Analysis.sh  ${work_fold} ${work_fold}ID_${id}_1.txt ${id} 
+
+	bash ${script_fold}Cnv_Diff.sh /mnt/Genotyping/cnv_detection/Rscripts/ ${work_fold} ${work_fold}ID_${id}_1.txt ${id} ${work_fold}M01020_01_annotation_file_GTmatch_mod.csv
+
+	bash ${script_fold}Cnv_Plot.sh /mnt/Genotyping/cnv_detection/Rscripts/ ${work_fold} ${work_fold}ID_${id}_1.txt ${id}
+
+	# check quality
+	bash ${script_fold}Cnv_Plot_LRR-BAF.sh /mnt/Genotyping/cnv_detection/Rscripts/ ${work_fold} ${work_fold}ID_${id}_1.txt ${id} ${work_fold}M01020_01_annotation_file_GTmatch_mod.csv 9
+
+done
+
+#######################
+### single analysis ###
+#######################
+
+sample_name_single=$(awk '{print $1}' ${work_fold}Samples_name_single.txt)
+
+for id in ${sample_name_single[@]}
+do
+        echo ${id}
+
+        bash ${script_fold}Cnv_Analysis_Single.sh  ${work_fold} ${work_fold}ID_${id}_1.txt ${id}
+
+        bash ${script_fold}Cnv_Det_Single.sh /mnt/Genotyping/cnv_detection/Rscripts/ ${work_fold} ${work_fold}ID_${id}_1.txt ${id} ${work_fold}M01020_01_annotation_file_GTmatch_mod.csv
+
+        bash ${script_fold}Cnv_Plot_Single.sh /mnt/Genotyping/cnv_detection/Rscripts/ ${work_fold} ${work_fold}ID_${id}_1.txt ${id}
+
+	bash ${script_fold}Cnv_Plot_LRR-BAF_Single.sh /mnt/Genotyping/cnv_detection/Rscripts/ ${work_fold} ${work_fold}ID_${id}_1.txt ${id} ${work_fold}M01020_01_annotation_file_GTmatch_mod.csv 9
+
+done
+
+bash ${script_fold}Cnv_Plot_LRR-BAF_Single.sh /mnt/Genotyping/cnv_detection/Rscripts/ ${work_fold} ${work_fold}ID_FOE0070_1.txt FOE0070 ${work_fold}M01020_01_annotation_file_GTmatch_mod.csv 10
+bash ${script_fold}Cnv_Plot_LRR-BAF_Single.sh /mnt/Genotyping/cnv_detection/Rscripts/ ${work_fold} ${work_fold}ID_FOE0071_1.txt FOE0071 ${work_fold}M01020_01_annotation_file_GTmatch_mod.csv 12
+bash ${script_fold}Cnv_Plot_LRR-BAF_Single.sh /mnt/Genotyping/cnv_detection/Rscripts/ ${work_fold} ${work_fold}ID_FOE0074_1.txt FOE0074 ${work_fold}M01020_01_annotation_file_GTmatch_mod.csv 17
+bash ${script_fold}Cnv_Plot_LRR-BAF_Single.sh /mnt/Genotyping/cnv_detection/Rscripts/ ${work_fold} ${work_fold}ID_FOE0075_1.txt FOE0075 ${work_fold}M01020_01_annotation_file_GTmatch_mod.csv 12
+bash ${script_fold}Cnv_Plot_LRR-BAF_Single.sh /mnt/Genotyping/cnv_detection/Rscripts/ ${work_fold} ${work_fold}ID_FOK0131_1.txt FOK0131 ${work_fold}M01020_01_annotation_file_GTmatch_mod.csv 10
+
+
+
+
+
+

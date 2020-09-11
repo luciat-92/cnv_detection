@@ -1,0 +1,48 @@
+script_fold=/mnt/Genotyping/cnv_detection/scripts/
+work_fold=/mnt/Genotyping/genotyping_Oct19_June20/
+fold1=/mnt/Genotyping/genotyping_Oct2019/
+fold2=/mnt/Genotyping/genotyping_June2020/
+
+######################
+### merge vcf file ###
+###################### 
+
+bash ${script_fold}Merge_vcf.sh ${work_fold} ${fold1} ${fold2} 
+
+######################
+
+##########################################
+### Samples match and SNP intersection ###
+########################################## 
+
+# manually create a .txt files that contains the samples of interest
+
+bash  ${script_fold}GT_match_merge.sh /mnt/Genotyping/cnv_detection/Rscripts/ ${work_fold} ${fold1} ${fold2} ${fold1}M01003_annotation_file_GTmatch.csv ${fold2}M01020_01_annotation_file_GTmatch_mod.csv ${work_fold}/Samples_name.txt 10
+
+bash  ${script_fold}Create_SampleID.sh /mnt/Genotyping/cnv_detection/Rscripts/ ${work_fold} ${work_fold}Merged_annotation_file_GTmatch.csv  ${work_fold}Samples_name.txt
+
+mkdir -p ${work_fold}summary_res
+
+#########################
+### pairwise analysis ###
+#########################
+
+sample_name_pair=$(awk '{print $1}' ${work_fold}Samples_name.txt)
+
+for id in ${sample_name_pair[@]}
+do
+ 	echo ${id}
+
+	bash ${script_fold}Cnv_Analysis.sh ${work_fold} ${work_fold}ID_${id}_1.txt ${id} 
+
+	bash ${script_fold}Cnv_Diff.sh /mnt/Genotyping/cnv_detection/Rscripts/ ${work_fold} ${work_fold}ID_${id}_1.txt ${id} ${work_fold}Merged_annotation_file_GTmatch.csv
+
+	bash ${script_fold}Cnv_Plot.sh /mnt/Genotyping/cnv_detection/Rscripts/ ${work_fold} ${work_fold}ID_${id}_1.txt ${id}
+
+	# check quality
+	bash ${script_fold}Cnv_Plot_LRR-BAF.sh /mnt/Genotyping/cnv_detection/Rscripts/ ${work_fold} ${work_fold}ID_${id}_1.txt ${id} ${work_fold}Merged_annotation_file_GTmatch.csv 9
+	bash ${script_fold}Cnv_Plot_LRR-BAF.sh /mnt/Genotyping/cnv_detection/Rscripts/ ${work_fold} ${work_fold}ID_${id}_1.txt ${id} ${work_fold}Merged_annotation_file_GTmatch.csv 23
+
+done
+
+
