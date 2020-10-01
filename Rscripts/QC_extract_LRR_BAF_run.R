@@ -281,17 +281,17 @@ sample_name_FT <- lapply(sample_name_FT, function(x) x[-c(1,(length(x)-6+1):leng
 sample_name_FT <- sapply(sample_name_FT, function(x) paste(x, sep="", collapse=""))
 
 # add the gender in the loaded Sample_table
-id_male_ST <- sapply(sample_name_FT[id_male], function(x) which(x == Sample_table$Sample.ID))
-id_female_ST <- sapply(sample_name_FT[id_female], function(x) which(x == Sample_table$Sample.ID))
-
-Sample_table$Gender[id_male_ST] <- "Male"
-Sample_table$Gender[id_female_ST] <- "Female"
-
 if(length(id_undef)>0){
-  
   id_undef_ST <- sapply(sample_name_FT[id_undef], function(x) which(x == Sample_table$Sample.ID))
   Sample_table$Gender[id_undef_ST] <- "Undef"
-  
+}
+if(length(id_male)>0){
+  id_male_ST <- sapply(sample_name_FT[id_male], function(x) which(x == Sample_table$Sample.ID))
+  Sample_table$Gender[id_male_ST] <- "Male"
+}
+if(length(id_female)>0){
+  id_female_ST <- sapply(sample_name_FT[id_female], function(x) which(x == Sample_table$Sample.ID))
+  Sample_table$Gender[id_female_ST] <- "Female"
 }
 
 # update the new table
@@ -330,28 +330,30 @@ vect_lensnps <- c(vect_lensnps, length(name_SNP_toexclude_X))
 
 id_column_R <- as.vector(sapply(0:(nsamples-1), function(x) 14 + (6*x)))
 
-
-registerDoParallel(cores = ncores)
-
-bool_SNP_to_exclude <- foreach(i=1:length(chrY_notPAR_SNPname))%dopar%{
+if(length(id_female)>0){
+  registerDoParallel(cores = ncores)
+  bool_SNP_to_exclude <- foreach(i=1:length(chrY_notPAR_SNPname))%dopar%{
   
-  print(i)
+    print(i)
   
-  id <- which(Full_table$Name == chrY_notPAR_SNPname[i])
-  GT_id <- Full_table[id,id_column_GT]
-  GT_female <- GT_id[id_female]
-  R_id <- Full_table[id,id_column_R]
-  R_female <- R_id[id_female]
-  
+    id <- which(Full_table$Name == chrY_notPAR_SNPname[i])
+    GT_id <- Full_table[id,id_column_GT]
+    GT_female <- GT_id[id_female]
+    R_id <- Full_table[id,id_column_R]
+    R_female <- R_id[id_female]
   
   
-  (length(which(GT_female != 'NC' | R_female > R_hpY))/nfemale) > female_frac
   
+    (length(which(GT_female != 'NC' | R_female > R_hpY))/nfemale) > female_frac
+  
+  }
+  id_SNP_to_exclude <- which(unlist(bool_SNP_to_exclude))
+  name_SNP_toexclude_Y_female <- chrY_notPAR_SNPname[id_SNP_to_exclude]
+  
+}else{
+  name_SNP_toexclude_Y_female <- c()
 }
 
-
-id_SNP_to_exclude <- which(unlist(bool_SNP_to_exclude))
-name_SNP_toexclude_Y_female <- chrY_notPAR_SNPname[id_SNP_to_exclude]
 
 vect_lensnps <- c(vect_lensnps, length(name_SNP_toexclude_Y_female))
 
@@ -404,9 +406,15 @@ n_SNPs <- nrow(Full_table_filt)
 
 id_column_GT_new <-  as.vector(sapply(0:(nsamples-1), function(x) 11 + (3*x)))
 
-GT_male_undef <- sapply(id_column_GT_new[-id_female], function(x) table(Full_table_filt[,x]))
-colnames(GT_male_undef) <- colnames(Full_table_filt[,id_column_GT_new[-id_female]])
-call_freq_filt_male_undef <- apply(GT_male_undef, 2, function(x) sum(x[1:3])/n_SNPs)
+if(length(id_female)>0){
+  GT_male_undef <- sapply(id_column_GT_new[-id_female], function(x) table(Full_table_filt[,x]))
+  colnames(GT_male_undef) <- colnames(Full_table_filt[,id_column_GT_new[-id_female]])
+  call_freq_filt_male_undef <- apply(GT_male_undef, 2, function(x) sum(x[1:3])/n_SNPs)
+}else{
+  GT_male_undef <- sapply(id_column_GT_new, function(x) table(Full_table_filt[,x]))
+  colnames(GT_male_undef) <- colnames(Full_table_filt[,id_column_GT_new])
+  call_freq_filt_male_undef <- apply(GT_male_undef, 2, function(x) sum(x[1:3])/n_SNPs)
+}
 
 id_chrY <- which(Full_table_filt$Chr == 'Y')
 id_notPAR <- which(PAR_table$V2 == 0)
@@ -417,14 +425,16 @@ Full_table_filt_female <- Full_table_filt[-id,]
 
 n_SNPs_female <- nrow(Full_table_filt_female)
 
-GT_female <- sapply(id_column_GT_new[id_female], function(x) table(Full_table_filt_female[,x]))
-colnames(GT_female) <- colnames(Full_table_filt_female[,id_column_GT_new[id_female]])
-call_freq_filt_female <- apply(GT_female, 2, function(x) sum(x[1:3])/n_SNPs_female)
-
-
 call_freq_filt <- rep(0, nsamples)
-call_freq_filt[id_female_ST] <- call_freq_filt_female
-call_freq_filt[-id_female_ST] <- call_freq_filt_male_undef
+if(length(id_female)>0){
+  GT_female <- sapply(id_column_GT_new[id_female], function(x) table(Full_table_filt_female[,x]))
+  colnames(GT_female) <- colnames(Full_table_filt_female[,id_column_GT_new[id_female]])
+  call_freq_filt_female <- apply(GT_female, 2, function(x) sum(x[1:3])/n_SNPs_female)
+  call_freq_filt[id_female_ST] <- call_freq_filt_female
+  call_freq_filt[-id_female_ST] <- call_freq_filt_male_undef  
+}else{
+  call_freq_filt <- call_freq_filt_male_undef  
+}
 
 df_sample_callrate$call_rate_filt <- call_freq_filt
 
@@ -527,6 +537,7 @@ GT_table <- do.call(rbind, GT_table)
 write.table(x = LRR_table, file = paste(outFile, 'LRR_table.txt', sep = ""), sep = '\t', quote = FALSE, dec = '.', row.names = FALSE, col.names = TRUE, na = '.')
 write.table(x = BAF_table, file = paste(outFile,'BAF_table.txt', sep = ""), sep = '\t', quote = FALSE, dec = '.', row.names = FALSE, col.names = TRUE, na = '.')
 write.table(x = GT_table, file = paste(outFile,'GT_table.txt', sep = ""), sep = '\t', quote = FALSE, dec = '.', row.names = FALSE, col.names = TRUE, na = '.')
+
 
 
 
