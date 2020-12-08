@@ -466,9 +466,55 @@ The sample name column in the annotation files used as input is the original one
 \item Steps 4, 6 and 7 can be now performed using merged annotation file and merged vcf file.
 \end{enumerate}
 
+\section{Merge multiple projects}
+The aim is to merge multiple vcf files (with LRR and BAF annotation) in order to compare lines from the same donor and check if donor annotation is correct.
+\begin{enumerate}
+\item \textbf{Script:} Merge\_multiple\_vcf.sh
+\begin{minted}{bash}
+bash Merge_multiple_vcf.sh  <output folder> <file with input folders>
+\end{minted}
+\textbf{Main steps:}
+\begin{itemize}
+\item Find common set of SNPs between all projects after the quality control procedure.
+\item Filter each .vcf file considering only the common set of SNPs.
+\item Merge all filtered .vcf files.
+\end{itemize}
+\textbf{Note:}\\
+This step can be performed only if steps 1,2 and 5 have been executed for all projects.\\
+\textbf{Output:}
+\begin{itemize}
+\item comm\_SNPs.txt set of common SNPs.
+\item data\_BAF\_LRR.vcf merged .vcf file.
+\end{itemize}
+\textbf{Computational Time:} depends on number of projects and samples
+\item Manually create a .txt file that contains the names of the samples of interest (one in each row). Then run the following bash script:\\
+\textbf{Script:} GT\_match\_merge\_multiple.sh
+\begin{minted}{bash}
+bash GT_match_merge_multiple.sh  <folder with R scripts> <output folder> 
+<file with folders name> <file with annotation files name> <samples names manually created> <n.of cores>
+\end{minted}
+\textbf{Main steps:}
+\begin{itemize}
+\item Compute GT match for the samples of interest using the GT tables from the all projects.
+\item Plot heatmap based on the match.
+\item Create an annotation file containing the info for the sample considered and correct the name if there is any mismatch.
+\end{itemize}
+\textbf{Note:}\\
+The sample name column in the annotation files used as input is the original one and not the updated.\\
+\textbf{Output:}
+\begin{itemize}
+\item Merged\_GT\_comp.txt
+\item Merged\_hm\_GT.pdf/.png (heatmap with original labelling)
+\item Merged\_hm\_GT\_samplename.pdf/.png (heatmap with original labelling, labels are ID names)
+\item Merged\_annotation\_file\_GTmatch.csv (updated annotation file with correct labelling, another column is added to indicate different projects)
+\end{itemize}
+\item Steps 4, 6 and 7 can be now performed using merged annotation file and merged vcf file.
+\end{enumerate}
+
+
 \section{Example Complete pipeline}
-To see an example of the complete pipeline, check example\_pipeline\_June2018.txt and\\ 
-example\_pipeline\_Nov17\_June18.txt (merged projects).
+To see an example of the complete pipeline, check example\_pipeline\_June2020.txt and\\ 
+example\_pipeline\_Oct19\_June20.txt (merged 2 projects) and example\_pipeline\_merged\_multiple.txt (merge multiple projects)
 
 
 \end{document}
