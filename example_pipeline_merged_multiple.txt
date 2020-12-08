@@ -1,0 +1,23 @@
+script_fold=/mnt/Genotyping/cnv_detection/scripts/
+work_fold=/mnt/Genotyping/genotyping_AllBD_updateJune20/
+fold_input_file=${work_fold}input_fold # column of directory for projectes, one per row
+ann_file=${work_fold}manifest_files # column of files for projects, one per row (just file name not complete path)
+
+######################
+### merge vcf file ###
+###################### 
+
+bash ${script_fold}Merge_multiple_vcf.sh ${work_fold} ${fold_input_file}
+
+######################
+
+##########################################
+### Samples match and SNP intersection ###
+########################################## 
+
+# manually create a .txt files that contains the samples of interest
+
+bash  ${script_fold}GT_match_merge_multiple.sh /mnt/Genotyping/cnv_detection/Rscripts/ ${work_fold} ${fold_input_file} ${ann_file} ${work_fold}/Samples_name.txt 10
+
+
+
