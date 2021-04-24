@@ -26,7 +26,8 @@ fi
 
 
 
-manifest_name=$(echo $manifest_file | cut -d"/" -f4)
+##manifest_name=$(echo $manifest_file | cut -d"/" -f4) ### not customized for any structure
+manifest_name=${manifest_file##*/}
 manifest_name=$(echo $manifest_name | cut -d"." -f1)
 manifest_name=$(echo "$manifest_name" | tr - .)
 
