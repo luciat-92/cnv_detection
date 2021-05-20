@@ -11,7 +11,6 @@ Digital karyotyping pipeline to detect de novo copy number abnormalities arising
      * ggrepel
      * ComplexHeatmap
      * circlize
-     * grid
      * gridExtra
   * Plink1.9
   * BCFtools
@@ -19,5 +18,5 @@ Digital karyotyping pipeline to detect de novo copy number abnormalities arising
   * VCFtools
 
 ### Usage
-For example please refer to [pairwise analysis][http://gitlab.mpcdf.mpg.de/luciat/cnv_detection/-/blob/master/example_pipeline_June2020.txt]
+For example please refer to [pairwise analysis](http://gitlab.mpcdf.mpg.de/luciat/cnv_detection/-/blob/master/example_pipeline_June2020.txt)
 
