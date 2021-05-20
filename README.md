@@ -6,16 +6,18 @@ Digital karyotyping pipeline to detect de novo copy number abnormalities arising
  * R (3.5.1) with packages: 
      * argparse 
      * doParallel 
-        * ggplot2 
-        * RColorBrewer 
-        * ggrepel
-        * ComplexHeatmap
-        * circlize
-        * grid
-        * gridExtra
+     * ggplot2 
+     * RColorBrewer 
+     * ggrepel
+     * ComplexHeatmap
+     * circlize
+     * grid
+     * gridExtra
   * Plink1.9
   * BCFtools
   * bedtools
   * VCFtools
 
+### Usage
+For example please refer to [pairwise analysis][http://gitlab.mpcdf.mpg.de/luciat/cnv_detection/-/blob/master/example_pipeline_June2020.txt]
 
