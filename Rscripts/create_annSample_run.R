@@ -45,7 +45,8 @@ ann_table$SentrixBarcode_A <- as.character(ann_table$SentrixBarcode_A)
 ann_table[,2] <- ann_table$Type
 # use the new sample names
 ann_table[,3] <- ann_table$Sample_name_new
-ann_table[,6] <- ann_table$Gender
+ann_table[,6] <- as.charachter(ann_table$Gender)
+print(ann_table[,6])
   
 ann_table_tot <- ann_table[,1:6]
 colnames(ann_table_tot) <- c('ID', 'Type', 'Sample_name', 'SentrixBarcode_A', 'SentrixPosition_A', 'Gender')
