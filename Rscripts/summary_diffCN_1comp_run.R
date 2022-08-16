@@ -23,7 +23,8 @@ parser_plot$add_argument("--sample_name", type = "character", help="vector of na
 parser_plot$add_argument("--qs_thr", type = "double", default = 2, help="quality score threshold")
 parser_plot$add_argument("--nSites_thr", type = "integer", default = 10,  help="number of sites thersold for CN1")
 parser_plot$add_argument("--nHet_thr", type = "integer", default = 10, help="number of sites thersold for CN3")
-parser_plot$add_argument("--CN_len_thr", type = "integer", default = 200, help="CN length thr in kb")
+parser_plot$add_argument("--CN_len_thr", type = "integer", default = 200, help="CN length (small) thr in kb")
+parser_plot$add_argument("--CN_len_thr_big", type = "integer", default = 1000, help="CN length (big) thr in kb")
 parser_plot$add_argument("--sex", type="character", default = "M", help = "sex of the sample (patient)")
 parser_plot$add_argument("--width_plot", type="double", default = 10)
 parser_plot$add_argument("--outf", type="character", help = "Output file ")
@@ -39,6 +40,7 @@ qs_thr <- args$qs_thr
 nSites_thr <- args$nSites_thr
 nHet_thr <- args$nHet_thr
 CN_len_thr <- args$CN_len_thr
+CN_len_thr_big <- args$CN_len_thr_big
 sample_name <- args$sample_name
 sex_sample <- args$sex
 width_plot <- args$width_plot
@@ -150,7 +152,7 @@ for(i in 1:length(post)){
    
     chr_diff <- sort(unique(cnv_filt[[i]]$Chr[id]))
     n_diff200 <- sapply(chr_diff, function(x) length(which(cnv_filt[[i]]$Chr[id] == x))) 
-    n_diff1 <- sapply(chr_diff, function(x) length(which(cnv_filt[[i]]$Chr[id] == x & cnv_filt[[i]]$Len[id] > 10^6)))
+    n_diff1 <- sapply(chr_diff, function(x) length(which(cnv_filt[[i]]$Chr[id] == x & cnv_filt[[i]]$Len[id] > CN_len_thr_big*1000)))
     
     df$Ndiff_200kb[25*(i-1) + chr_diff] <- n_diff200
     df$Ndiff_200kb[25*(i-1) + 25] <- sum(n_diff200)
@@ -171,7 +173,7 @@ write.table(x = df, file = paste(outFile, sprintf('%s_CNV_diff.txt', sample_name
 # make the plot for each post
 df_plot <- rbind(df[,1:6], df[,1:6])
 df_plot$Ndiff = c(df$Ndiff_200kb, df$Ndiff_1Mb)
-df_plot$thr = c(rep('0.2 Mb', nrow(df)), rep('1 Mb', nrow(df)))
+df_plot$thr = c(rep(sprintf('%s Mb', as.character(CN_len_thr/1000)), nrow(df)), rep(sprintf('%s Mb', as.character(CN_len_thr_big/1000)), nrow(df)))
 df_plot$Chr <- factor(df_plot$Chr, levels = c(1:22, 'X', 'Y', 'tot'))
 
 plot_CN <- ggplot(data = df_plot, aes(x = Chr, y = Ndiff))+
