@@ -24,7 +24,7 @@ The analysis is divided in two steps:
   * VCFtools
 
 ## Usage
-For details please refer to [documentation](https://gitlab.mpcdf.mpg.de/luciat/cnv_detection/-/blob/master/pipeline_description/CNV_analysis_pipeline.pdf)
+For details please refer to [documentation](https://github.com/luciat-92/cnv_detection/blob/master/pipeline_description/CNV_analysis_pipeline.pdf)
 
 ## References
 <a id="1">[1]</a> Infinium Global Screening Array-24 v1.0, A powerful, high-quality, cost-effective array for population-scale genetic studies [Technical Data Sheet](http://www.illumina.com/content/dam/illumina-marketing/documents/products/datasheets/infinium-commercial-gsa-data-sheet-370-2016-016.pdf)  
